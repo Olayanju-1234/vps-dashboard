@@ -26,6 +26,7 @@ func entryJSON(t time.Time, unit, sysUnit, prio string, msg any) string {
 	}
 	if sysUnit != "" {
 		m["UNIT"] = sysUnit
+		m["_PID"] = "1"
 	}
 	b, _ := json.Marshal(m)
 	return string(b)
@@ -76,6 +77,10 @@ func TestCollectScrubsRedactsAndCounts(t *testing.T) {
 		entryJSON(now.Add(-10*time.Minute), "shop.service", "", "6", `GET /health 200`),
 		entryJSON(now.Add(-5*time.Minute), "other.service", "", "3", `not ours`),
 		entryJSON(now.Add(-time.Minute), "shop.service", "", "6", []int{0x57, 0x41, 0x52, 0x4e, 0xff}),
+		// Another app claiming to speak for shop.service: not PID 1, so ignored.
+		strings.Replace(entryJSON(now.Add(-2*time.Minute), "other.service", "", "3", "spoofed"), `"PRIORITY"`, `"UNIT":"shop.service","_PID":"4242","PRIORITY"`, 1),
+		// A clock stepped back: an entry from the next hour must not crash the counters.
+		entryJSON(now.Add(90*time.Minute), "shop.service", "", "3", "from the future"),
 	}
 	var gotArgs [][]string
 	c := New("journalctl", map[string]string{"shop.service": "shop"})
@@ -94,7 +99,7 @@ func TestCollectScrubsRedactsAndCounts(t *testing.T) {
 	if err := c.Collect(context.Background(), scrub); err != nil {
 		t.Fatal(err)
 	}
-	if !contains(gotArgs[0], "--since=-24h") || !contains(gotArgs[1], "--after-cursor=c-"+fmt.Sprint(now.Add(-time.Minute).UnixMicro())) {
+	if !contains(gotArgs[0], "--since=-24h") || !contains(gotArgs[1], "--after-cursor=c-"+fmt.Sprint(now.Add(90*time.Minute).UnixMicro())) {
 		t.Fatalf("args: %v", gotArgs)
 	}
 	res := c.Results()
@@ -102,13 +107,13 @@ func TestCollectScrubsRedactsAndCounts(t *testing.T) {
 		t.Fatalf("results: %+v", res)
 	}
 	r := res[0]
-	if r.Errors24 != 4 || r.Warns24 != 1 || r.Errors1h != 3 {
+	if r.Errors24 != 4 || r.Warns24 != 1 || r.Errors1h != 3 || strings.Contains(fmt.Sprint(r.Lines), "spoofed") {
 		t.Fatalf("counts: e24=%d w24=%d e1h=%d", r.Errors24, r.Warns24, r.Errors1h)
 	}
-	if len(r.Lines) != 4 || r.Lines[2].Count != 2 {
+	if len(r.Lines) != 5 || r.Lines[3].Count != 2 {
 		t.Fatalf("expected the repeated line collapsed: %+v", r.Lines)
 	}
-	if r.Lines[0].Message != "WARN?" || r.Lines[1].Unit != "shop.service" {
+	if r.Lines[0].Message != "from the future" || r.Lines[1].Message != "WARN?" || r.Lines[2].Unit != "shop.service" {
 		t.Fatalf("lines: %+v", r.Lines)
 	}
 	all, _ := json.Marshal(res)

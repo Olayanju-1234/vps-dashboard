@@ -274,7 +274,7 @@
 
   // ---------- routing ----------
   function route() {
-    const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+    const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map((p) => { try { return decodeURIComponent(p); } catch (e) { return p; } });
     if (!parts.length) return { tab: 'overview' };
     if (parts[0] === 'project') return { tab: 'project', id: parts[1] };
     return { tab: parts[0] };

@@ -54,6 +54,12 @@ health-check response, runs the real probe, snapshot, collector and HTTP server,
 and fails if any canary shows up in the snapshot, any API response, any static
 asset or any log line. Turning the scrubber off makes it fail.
 
+One known limit: the API has no login of its own. The SSH tunnel is the
+access control, so any local user on the server can `curl 127.0.0.1:8400` and
+see what the page shows (names, ages, counts, redacted errors; never values).
+If that matters on your box, serve it on a Unix socket readable by one group and
+tunnel with `ssh -L 8400:/run/vps-dashboard.sock`.
+
 The web half is also read-only by construction: every route is `GET`, other
 methods get `405`, and requests whose `Host` header isn't `localhost`/loopback
 get `421`, so a web page can't use DNS rebinding to read the API while your

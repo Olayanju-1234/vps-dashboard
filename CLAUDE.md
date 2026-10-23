@@ -22,6 +22,10 @@ make demo    # made-up data on 127.0.0.1:8400; the only way to see the UI on mac
 - The probe never gets network; the server never gets file privileges. New
   collectors that read private files go in the probe and reach the server only
   as names, counts, timestamps or redacted text through the snapshot.
+- The probe opens files only through `fsmeta.OpenRegular` (no symlinks, FIFOs or
+  devices; owner checked): it can read anything, so it must not be steered.
+- The env parser treats any line some reader (systemd or dotenv) could see as the
+  inside of a value as unparsed; widen, never narrow, that rule.
 - nginx paths and query strings are never stored, only counts.
 - Every HTTP route is GET; the Host header must be loopback.
 - The frontend escapes every API string with `esc()`; CSP allows scripts from 'self' only.

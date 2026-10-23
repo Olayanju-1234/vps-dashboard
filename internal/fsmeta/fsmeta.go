@@ -9,15 +9,17 @@ import (
 	"os/user"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/olayanju-1234/vps-dashboard/internal/state"
 )
 
-// Stat returns a file's metadata without opening it.
+// Stat returns a file's metadata without opening it. It does not follow a
+// symlink: a link where a file should be is reported, not resolved.
 func Stat(path string) state.FileMeta {
 	m := state.FileMeta{Path: path}
-	fi, err := os.Stat(path)
+	fi, err := os.Lstat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return m
 	}
@@ -33,7 +35,38 @@ func Stat(path string) state.FileMeta {
 		m.Owner = userName(uid)
 		m.Group = groupName(gid)
 	}
+	if fi.Mode()&fs.ModeSymlink != 0 {
+		m.Error = "is a symlink; not followed"
+	} else if !fi.Mode().IsRegular() {
+		m.Error = "is not a regular file"
+	}
 	return m
+}
+
+// OpenRegular opens a file for reading only if it is a regular file, not a
+// symlink, FIFO or device, and (when expectOwner is set) owned by that user.
+// The probe can read anything, so it must not be steered to another file.
+func OpenRegular(path, expectOwner string) (*os.File, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, fmt.Errorf("fsmeta: open: %w", err)
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("fsmeta: stat: %w", err)
+	}
+	if !fi.Mode().IsRegular() {
+		f.Close()
+		return nil, errors.New("fsmeta: not a regular file; not read")
+	}
+	if expectOwner != "" {
+		if uid, _, ok := owner(fi); ok && userName(uid) != expectOwner {
+			f.Close()
+			return nil, fmt.Errorf("fsmeta: owned by %s, expected %s; not read", userName(uid), expectOwner)
+		}
+	}
+	return f, nil
 }
 
 // Changed is the later of a path's mtime and ctime: a rename or chown that

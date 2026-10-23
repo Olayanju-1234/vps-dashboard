@@ -29,7 +29,7 @@ const (
 )
 
 // Fields asked of journalctl; __CURSOR and __REALTIME_TIMESTAMP always come along.
-var Fields = "MESSAGE,PRIORITY,_SYSTEMD_UNIT,UNIT"
+var Fields = "MESSAGE,PRIORITY,_SYSTEMD_UNIT,UNIT,_PID"
 
 // Opener starts journalctl and returns its stdout.
 type Opener func(ctx context.Context, args []string) (io.ReadCloser, func() error, error)
@@ -84,6 +84,7 @@ type entry struct {
 	Priority string          `json:"PRIORITY"`
 	Unit     string          `json:"_SYSTEMD_UNIT"`
 	SysUnit  string          `json:"UNIT"` // set on systemd's own messages about a unit
+	PID      string          `json:"_PID"`
 }
 
 // Collect reads entries since the last call (or the last 24 h on the first).
@@ -135,7 +136,8 @@ func (c *Collector) read(r io.Reader, scrub *envfile.Scrubber) error {
 			c.cursor = e.Cursor
 		}
 		unit := e.Unit
-		if e.SysUnit != "" {
+		// Any process may send UNIT=; only PID 1's messages speak for another unit.
+		if e.SysUnit != "" && e.PID == "1" {
 			unit = e.SysUnit
 		}
 		projID, ok := c.units[unit]
@@ -267,14 +269,15 @@ func (c *Collector) Results() []state.ProjectJournal {
 	for id, p := range c.byProj {
 		r := state.ProjectJournal{Project: id, PerHour: make([]int, 24), ByUnit: map[string]int{}}
 		for h, b := range p.hours {
-			if h >= start {
+			// A clock stepped back can leave entries in a "future" hour.
+			if h >= start && h <= nowHour {
 				r.PerHour[(h-start)/3600] += b[0]
 				r.Errors24 += b[0]
 				r.Warns24 += b[1]
 			}
 		}
 		for _, l := range p.lines {
-			if l.Level == "error" && now.Sub(l.Time) <= time.Hour {
+			if l.Level == "error" && now.Sub(l.Time) <= time.Hour && !l.Time.After(now) {
 				r.Errors1h += l.Count
 			}
 			r.ByUnit[l.Unit] += l.Count

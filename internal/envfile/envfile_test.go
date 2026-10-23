@@ -144,3 +144,82 @@ func TestCRLFAndLimits(t *testing.T) {
 		t.Fatalf("big: %v %d", err, len(res.Vars))
 	}
 }
+
+// Every case from the security review: a fragment of a value must never come
+// back as a name, under systemd's reading or dotenv's.
+func TestNoValueFragmentBecomesAName(t *testing.T) {
+	cases := []struct {
+		name, in string
+		want     []string // names that must be found
+		forbid   []string // fragments that must not appear as names
+	}{
+		{"backtick multi-line", "KEY=`l1\nSECRETPART=abc`\nAFTER=1\n", []string{"KEY", "AFTER"}, []string{"SECRETPART"}},
+		{"quote mid-value", "KEY=pre\"l1\nInnerSecret9=x\"\nAFTER=1\n", []string{"KEY", "AFTER"}, []string{"InnerSecret9"}},
+		{"escaped single quote", "A='abc\\'\nLEAKED=x'\nAFTER=1\n", []string{"A", "AFTER"}, []string{"LEAKED"}},
+		{"double-quoted multi-line", "K=\"line one\nHIDDEN=two\"\nAFTER=1\n", []string{"K", "AFTER"}, []string{"HIDDEN"}},
+		{"unquoted PEM", "KEY=-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA1b2c3d4==\nAoGBAMx7yZq9Rk2Lp4TnWvB8Jc==\n-----END RSA PRIVATE KEY-----\nAFTER=1\n", []string{"KEY", "AFTER"}, []string{"MIIEowIBAAKCAQEA1b2c3d4", "AoGBAMx7yZq9Rk2Lp4TnWvB8Jc"}},
+		{"bare base64 token", "dGhpc0lzQVNlY3JldFRva2VuMTIz==\n", nil, []string{"dGhpc0lzQVNlY3JldFRva2VuMTIz"}},
+		{"base64 with padding", "Zm9vYmFyYmF6cXV4==\n", nil, []string{"Zm9vYmFyYmF6cXV4"}},
+		{"token without padding", "c2VjcmV0dG9rZW52YWx1ZQ\n", nil, []string{"c2VjcmV0dG9rZW52YWx1ZQ"}},
+		{"continuation", "K=abc\\\nNOTAKEY=def\nAFTER=1\n", []string{"K", "AFTER"}, []string{"NOTAKEY"}},
+		{"no trailing newline", "A=1\nB=\"x", []string{"A", "B"}, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			res, err := Parse(strings.NewReader(c.in), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := map[string]bool{}
+			for _, v := range res.Vars {
+				got[v.Name] = true
+			}
+			for _, w := range c.want {
+				if !got[w] {
+					t.Errorf("missing name %s in %+v", w, res.Vars)
+				}
+			}
+			for _, f := range c.forbid {
+				for n := range got {
+					if strings.Contains(n, f) || strings.Contains(f, n) && len(n) > 3 {
+						t.Errorf("value fragment %q surfaced as name %q", f, n)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestSystemdDecoding(t *testing.T) {
+	in := "A=\"x\\\"y\"\nB='lit\\n'\nC= spaced  \nD=\"\"\nE=''\nF=a\" \"b\n# c\n; c\nexport G=1\n"
+	res, err := Parse(strings.NewReader(in), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []state.EnvVar{{Name: "A", Set: true}, {Name: "B", Set: true}, {Name: "C", Set: true}, {Name: "D"}, {Name: "E"}, {Name: "F", Set: true}, {Name: "G", Set: true}}
+	if !reflect.DeepEqual(res.Vars, want) {
+		t.Fatalf("got %+v", res.Vars)
+	}
+}
+
+func TestScrubberCatchesEveryForm(t *testing.T) {
+	in := "Q=\"pa\\\"ss-word-123\"\nC=plainvalue123 # a comment\nM=\"first-line-secret\nsecond-line-secret\"\n"
+	var sb ScrubBuilder
+	if _, err := Parse(strings.NewReader(in), &sb); err != nil {
+		t.Fatal(err)
+	}
+	sb.AddSecret("engine.token", "tok-0123456789abcdef\n")
+	s := sb.Build()
+	line := `got pa"ss-word-123 and plainvalue123 then first-line-secret, second-line-secret, tok-0123456789abcdef`
+	got := s.Scrub(line)
+	for _, leak := range []string{`pa"ss-word-123`, "plainvalue123", "first-line-secret", "second-line-secret", "tok-0123456789abcdef"} {
+		if strings.Contains(got, leak) {
+			t.Errorf("%q survived: %s", leak, got)
+		}
+	}
+	text := fmt.Sprintf("%v %+v %#v %s", sb, &sb, sb, &sb)
+	js, _ := json.Marshal(map[string]any{"b": sb, "p": &sb})
+	if strings.Contains(text+string(js), "plainvalue123") || !strings.Contains(text, "[scrub builder:") {
+		t.Fatalf("builder printed values: %s %s", text, js)
+	}
+}

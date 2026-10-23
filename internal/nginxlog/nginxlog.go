@@ -166,7 +166,11 @@ func (t *Tracker) add(s *tail, line string, cutoff int64) {
 		if h, _, ok := strings.Cut(name, ":"); ok {
 			name = h
 		}
-		project = t.hosts[name]
+		var known bool
+		if project, known = t.hosts[name]; !known {
+			// Scanners send any Host they like; one row stops them growing the list.
+			name = "other hosts (" + s.Label + ")"
+		}
 	}
 	st, ok := t.sites[name]
 	if !ok {

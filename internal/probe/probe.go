@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -113,12 +114,19 @@ func (p *Probe) envFiles(sb *envfile.ScrubBuilder) []state.EnvFile {
 		for _, spec := range proj.EnvFiles {
 			ef := state.EnvFile{FileMeta: fsmeta.Stat(spec.Path), SecretFile: spec.Secret, ExpectOwner: spec.ExpectOwner, ExpectMode: spec.ExpectMode}
 			ef.Project = proj.ID
-			if !ef.Exists || spec.Secret {
-				// A secret file is one value; its size says whether it is set.
+			if !ef.Exists || ef.Error != "" {
 				out = append(out, ef)
 				continue
 			}
-			res, err := parseFile(spec.Path, sb)
+			if spec.Secret {
+				// One value: only its size is shown, but its content still scrubs logs.
+				if err := addSecret(spec.Path, spec.ExpectOwner, sb); err != nil {
+					ef.Error = err.Error()
+				}
+				out = append(out, ef)
+				continue
+			}
+			res, err := parseFile(spec.Path, spec.ExpectOwner, sb)
 			if err != nil {
 				ef.Error = err.Error()
 			}
@@ -129,13 +137,27 @@ func (p *Probe) envFiles(sb *envfile.ScrubBuilder) []state.EnvFile {
 	return out
 }
 
-func parseFile(path string, sb *envfile.ScrubBuilder) (envfile.Result, error) {
-	f, err := os.Open(path)
+func parseFile(path, owner string, sb *envfile.ScrubBuilder) (envfile.Result, error) {
+	f, err := fsmeta.OpenRegular(path, owner)
 	if err != nil {
-		return envfile.Result{}, fmt.Errorf("probe: open env file: %w", err)
+		return envfile.Result{}, fmt.Errorf("probe: env file: %w", err)
 	}
 	defer f.Close()
 	return envfile.Parse(f, sb)
+}
+
+func addSecret(path, owner string, sb *envfile.ScrubBuilder) error {
+	f, err := fsmeta.OpenRegular(path, owner)
+	if err != nil {
+		return fmt.Errorf("probe: secret file: %w", err)
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, 4096))
+	if err != nil {
+		return fmt.Errorf("probe: secret file: read: %w", err)
+	}
+	sb.AddSecret(filepath.Base(path), string(b))
+	return nil
 }
 
 func (p *Probe) envCopies() []state.FileMeta {

@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 // Package e2e runs the whole pipeline (probe, snapshot file, collector, HTTP
 // server) against planted secrets and proves no value comes out the far end.
 package e2e
@@ -15,8 +17,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -46,9 +48,6 @@ func write(t *testing.T, path, content string, mode os.FileMode) {
 }
 
 func TestNoSecretValueLeavesThePipeline(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("uses shell scripts as fake journalctl/systemctl")
-	}
 	dir := t.TempDir()
 	var secrets []string
 	newSecret := func(label string) string {
@@ -75,6 +74,28 @@ func TestNoSecretValueLeavesThePipeline(t *testing.T) {
 	write(t, filepath.Join(dir, "opt/shop/.env.bak-1"), "JWT_SECRET="+oldCopy+"\n", 0o600)
 	write(t, filepath.Join(dir, "opt/shop/.env.example"), "JWT_SECRET=\n", 0o644)
 
+	// Attacks on the probe's read-anything capability: a symlink swapped in for
+	// an env file, a FIFO that would block a plain open, a file with the wrong owner.
+	rootOnly := filepath.Join(dir, "root-only/secret.conf")
+	linkedName := "LINKED" + strings.ToUpper(hex.EncodeToString([]byte(newSecret("ln")[6:12])))
+	write(t, rootOnly, linkedName+"=x\n"+newSecret("rootonly")+"\n", 0o600)
+	linkPath := filepath.Join(dir, "opt/other/.env")
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(rootOnly, linkPath); err != nil {
+		t.Fatal(err)
+	}
+	fifoPath := filepath.Join(dir, "opt/fifo/.env")
+	if err := os.MkdirAll(filepath.Dir(fifoPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(fifoPath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	wrongOwner := filepath.Join(dir, "opt/owned/.env")
+	write(t, wrongOwner, "OWNED_BY_SOMEONE_ELSE="+newSecret("owner")+"\n", 0o600)
+
 	backupDir := filepath.Join(dir, "backups")
 	write(t, filepath.Join(backupDir, "shop-1.sql.gz"), "dump "+dbPass, 0o600)
 
@@ -88,6 +109,7 @@ func TestNoSecretValueLeavesThePipeline(t *testing.T) {
 		`Error: auth failed for header x-internal-token: ` + logOnly,
 		`ERROR quoted value ` + quoted + ` with spaces`,
 		`ERROR Authorization: Bearer ` + logOnly,
+		`ERROR engine replied 401 for ` + token,
 	} {
 		e, _ := json.Marshal(map[string]string{
 			"__CURSOR": fmt.Sprintf("c%d", i), "__REALTIME_TIMESTAMP": fmt.Sprint(now.Add(-time.Duration(10-i) * time.Minute).UnixMicro()),
@@ -136,11 +158,11 @@ func TestNoSecretValueLeavesThePipeline(t *testing.T) {
 	    "checks": [{"url": %q}],
 	    "hosts": ["shop.example.test"],
 	    "backups": [{"label": "db", "dir": %q, "glob": "shop-*.sql.gz"}],
-	    "env_files": [{"path": %q}, {"path": %q, "secret_file": true}],
+	    "env_files": [{"path": %q}, {"path": %q, "secret_file": true}, {"path": %q}, {"path": %q}, {"path": %q, "expect_owner": "nobody-in-particular"}],
 	    "env_copy_globs": [%q]
 	  }]
 	}`, filepath.Join(dir, "probe.json"), proc, filepath.Join(dir, "sysstat"), dir, fakeJournalctl, fakeSystemctl, nginxLog,
-		app.URL+"/health", backupDir, envPath, tokenPath, filepath.Join(dir, "opt/shop/.env*"))
+		app.URL+"/health", backupDir, envPath, tokenPath, linkPath, fifoPath, wrongOwner, filepath.Join(dir, "opt/shop/.env*"))
 	cfg, err := config.Parse([]byte(cfgJSON))
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +173,9 @@ func TestNoSecretValueLeavesThePipeline(t *testing.T) {
 	ctx := context.Background()
 
 	p := probe.New(cfg, "test", log)
-	snap := p.Cycle(ctx)
+	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	snap := p.Cycle(cctx) // a FIFO opened without O_NONBLOCK would hang here
 	if err := probe.Write(cfg.SnapshotPath, snap); err != nil {
 		t.Fatal(err)
 	}
@@ -192,8 +216,18 @@ func TestNoSecretValueLeavesThePipeline(t *testing.T) {
 			t.Errorf("state is missing %s", want)
 		}
 	}
+	for _, want := range []string{"is a symlink; not followed", "is not a regular file", "expected nobody-in-particular; not read"} {
+		if !strings.Contains(st, want) {
+			t.Errorf("state is missing the refusal %q", want)
+		}
+	}
+	for _, never := range []string{linkedName, "OWNED_BY_SOMEONE_ELSE"} {
+		if strings.Contains(st, never) {
+			t.Errorf("the probe read a file it should have refused: found %s", never)
+		}
+	}
 	jr := bodies["/api/journal?project=shop"]
-	for _, want := range []string{"[env:DATABASE_URL]", "[env:JWT_SECRET]", "[env:QUOTED]", "[redacted]"} {
+	for _, want := range []string{"[env:DATABASE_URL]", "[env:JWT_SECRET]", "[env:QUOTED]", "[env:engine.token]", "[redacted]"} {
 		if !strings.Contains(jr, want) {
 			t.Errorf("journal is missing placeholder %s: %s", want, jr)
 		}

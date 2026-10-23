@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/olayanju-1234/vps-dashboard/internal/config"
@@ -33,6 +34,9 @@ type treeResult struct {
 // match the disk. Folders deployed on different days can match different
 // commits; the project reports the one furthest behind.
 func (d *Detector) tree(ctx context.Context, spec config.DeploySpec, dep *state.Deploy) error {
+	if spec.Private {
+		return errors.New("deploy: tree matching needs the GitHub API, which a private repo refuses without a token")
+	}
 	commits, err := d.gh.Commits(ctx, spec.Repo, spec.Branch, Recent)
 	if err != nil {
 		return fmt.Errorf("deploy: %w", err)
@@ -72,6 +76,9 @@ func (d *Detector) tree(ctx context.Context, spec config.DeploySpec, dep *state.
 			if res.differing == 0 {
 				break
 			}
+		}
+		if m.res.compared == 0 {
+			return fmt.Errorf("deploy: no tracked files under %q in %s; check the prefix", td.Prefix, spec.Repo)
 		}
 		matches = append(matches, m)
 	}
@@ -173,8 +180,8 @@ func under(path, prefix string) (string, bool) {
 // hashFile computes a file's git blob id, cached by size and mtime.
 func (d *Detector) hashFile(path string, symlink bool) string {
 	fi, err := os.Lstat(path)
-	if err != nil {
-		return ""
+	if err != nil || (!fi.Mode().IsRegular() && fi.Mode()&os.ModeSymlink == 0) {
+		return "" // a FIFO or device must never be opened: it could block forever
 	}
 	d.mu.Lock()
 	h, ok := d.hashes[path]
@@ -203,7 +210,7 @@ func blobSHA(path string, symlink bool, size int64) (string, error) {
 		_, _ = io.WriteString(h, "blob "+strconv.Itoa(len(target))+"\x00"+target)
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
-	f, err := os.Open(path)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return "", fmt.Errorf("deploy: open: %w", err)
 	}

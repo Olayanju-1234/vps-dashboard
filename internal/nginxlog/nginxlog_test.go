@@ -99,3 +99,19 @@ func byName(sites []state.NginxSite) map[string]state.NginxSite {
 	}
 	return m
 }
+
+func TestUnknownHostsShareOneRow(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "a.log")
+	for i := 0; i < 50; i++ {
+		appendTo(t, log, line(now.Add(-time.Minute), "/", 404, "scanner", fmt.Sprintf("random-%d.example", i)))
+	}
+	appendTo(t, log, line(now.Add(-time.Minute), "/", 200, "x", "known.example"))
+	tr := New([]Source{{Path: log, Label: "a.log"}}, map[string]string{"known.example": "p"}, "")
+	tr.now = func() time.Time { return now }
+	tr.Update()
+	sites := byName(tr.Sites())
+	if len(sites) != 2 || sites["other hosts (a.log)"].Total24 != 50 || sites["known.example"].Project != "p" {
+		t.Fatalf("sites: %+v", sites)
+	}
+}
