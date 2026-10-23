@@ -378,7 +378,7 @@ func (c *Collector) projectLocked(pc config.Project, ports []state.Port, now tim
 	if p.Deploy.Method == "" {
 		p.Deploy = state.Deploy{Method: pc.Deploy.Method, Behind: -1, Status: "unknown"}
 	}
-	if since := earliestStart(p.Units); !since.IsZero() && p.Deploy.DeployedAt.After(since.Add(2*time.Minute)) {
+	if last := latestStart(p.Units); !last.IsZero() && p.Deploy.DeployedAt.After(last.Add(2*time.Minute)) {
 		p.Deploy.NeedsRestart = true
 	}
 	p.Statics = c.statics[pc.ID]
@@ -400,15 +400,13 @@ func (c *Collector) projectLocked(pc config.Project, ports []state.Port, now tim
 	return p
 }
 
-// earliestStart is when the longest-running service started; files changed
-// after it may not be loaded yet.
-func earliestStart(units []state.Unit) time.Time {
+// latestStart is the most recent start of any running service. Using the
+// latest, not the earliest, keeps shared services (RabbitMQ) and parts that a
+// deploy didn't touch from flagging every deploy as unrestarted.
+func latestStart(units []state.Unit) time.Time {
 	var t time.Time
 	for _, u := range units {
-		if u.Sub != "running" || u.ActiveSince.IsZero() {
-			continue
-		}
-		if t.IsZero() || u.ActiveSince.Before(t) {
+		if u.Sub == "running" && u.ActiveSince.After(t) {
 			t = u.ActiveSince
 		}
 	}

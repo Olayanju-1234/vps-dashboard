@@ -92,3 +92,15 @@ func TestDownsample(t *testing.T) {
 		t.Fatalf("downsample: %+v", out)
 	}
 }
+
+func TestLatestStart(t *testing.T) {
+	now := time.Now()
+	units := []state.Unit{
+		{Sub: "running", ActiveSince: now.Add(-30 * 24 * time.Hour)}, // a broker that never restarts
+		{Sub: "running", ActiveSince: now.Add(-time.Hour)},
+		{Sub: "waiting", ActiveSince: now}, // timers don't count
+	}
+	if got := latestStart(units); !got.Equal(now.Add(-time.Hour)) {
+		t.Fatalf("latestStart = %v", got)
+	}
+}

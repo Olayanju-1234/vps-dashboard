@@ -89,7 +89,7 @@ func (c *Collector) alertsLocked(s *state.State, now time.Time) []state.Alert {
 			add("info", p.ID, "deploy", "%s", d.Note)
 		}
 		if d.NeedsRestart {
-			add("warning", p.ID, "deploy", "files changed %s after the oldest running unit started; a restart may be pending", ago(now, d.DeployedAt))
+			add("warning", p.ID, "deploy", "files changed %s ago and no unit has restarted since; a restart may be pending", ago(now, d.DeployedAt))
 		}
 		for _, b := range p.Backups {
 			switch b.Status {
