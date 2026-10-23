@@ -488,7 +488,7 @@
           <div class="subject">${esc(d.main_subject || '—')}</div>
           <div class="muted small">${d.main_time && !zeroTime(d.main_time) ? `committed ${ago(d.main_time)}` : ''}${d.behind > 0 ? ` · ${d.behind} commit${d.behind === 1 ? '' : 's'} ahead of the server` : ''}</div></div>
       </div>
-      <div class="muted small" style="margin-top:10px">How this is known: ${esc({ go_binary: 'the commit Go stamps into the binary', git_dir: 'the .git folder copied with the code', tree: `hashing ${fmtNum(d.compared_files)} tracked files on disk and matching them to recent commits` }[d.method] || d.method)}.${d.note ? ` ${esc(d.note)}.` : ''}${d.error ? ` <span class="ink2">${esc(d.error)}</span>` : ''}</div>
+      <div class="muted small" style="margin-top:10px">How this is known: ${esc({ go_binary: 'the commit Go stamps into the binary', git_dir: 'the .git folder copied with the code', tree: `hashing ${fmtNum(d.compared_files)} tracked files on disk and matching them to recent commits` }[d.method] || d.method)}.${d.note ? ` ${esc(d.note)}.` : ''}${d.error ? ` <span class="ink2">${esc(d.error)}</span>` : ''}${(d.differing_paths || []).length ? `<div style="margin-top:6px">Files that differ: ${d.differing_paths.map((x) => `<code>${esc(x)}</code>`).join(', ')}${d.differing_files > d.differing_paths.length ? ` and ${d.differing_files - d.differing_paths.length} more` : ''}</div>` : ''}</div>
     </div>`;
 
     const checkRows = checks.map((c) => `<tr><td class="mono" style="overflow-wrap:anywhere">${esc(c.url)}</td>

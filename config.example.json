@@ -29,7 +29,7 @@
         "method": "tree",
         "trees": [
           { "dir": "/opt/shop/api", "prefix": "api" },
-          { "dir": "/opt/shop/web", "prefix": "web" }
+          { "dir": "/opt/shop/web", "prefix": "web", "exclude": ["*.tsbuildinfo"] }
         ],
         "deployed_at": ["/opt/shop/api/dist", "/opt/shop/web/.next"]
       },

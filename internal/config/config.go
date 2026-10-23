@@ -88,10 +88,12 @@ type DeploySpec struct {
 	Private    bool     `json:"private"` // repo is private: no GitHub API calls
 }
 
-// TreeDir maps a folder in the repo to a folder on disk.
+// TreeDir maps a folder in the repo to a folder on disk. Exclude skips repo
+// paths: "frontend/" is a prefix, "*.tsbuildinfo" matches a file name.
 type TreeDir struct {
-	Dir    string `json:"dir"`
-	Prefix string `json:"prefix"`
+	Dir     string   `json:"dir"`
+	Prefix  string   `json:"prefix"`
+	Exclude []string `json:"exclude"`
 }
 
 // Static is a directory nginx serves directly.
