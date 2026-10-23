@@ -483,7 +483,7 @@
           <div><span class="sha">${short(d.commit)}</span>${d.dirty ? ' <span class="chip">uncommitted changes</span>' : ''}</div>
           <div class="subject">${esc(d.subject || '—')}</div>
           <div class="muted small">committed ${ago(d.commit_time)} · files changed ${ago(d.deployed_at)}${d.needs_restart ? ' · <b>restart pending?</b>' : ''}</div></div>
-        <div class="deploy-side"><div class="k">${d.main_source === 'local-ref' ? 'origin/main when copied' : 'GitHub main'}</div>
+        <div class="deploy-side"><div class="k">${d.main_source === 'local-ref' ? 'main as last fetched before the copy' : 'GitHub main'}</div>
           <div><span class="sha">${short(d.main_commit)}</span></div>
           <div class="subject">${esc(d.main_subject || '—')}</div>
           <div class="muted small">${d.main_time && !zeroTime(d.main_time) ? `committed ${ago(d.main_time)}` : ''}${d.behind > 0 ? ` · ${d.behind} commit${d.behind === 1 ? '' : 's'} ahead of the server` : ''}</div></div>

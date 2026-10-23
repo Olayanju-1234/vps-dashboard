@@ -31,10 +31,11 @@ func (d *Detector) gitDir(ctx context.Context, spec config.DeploySpec, dep *stat
 		dep.CommitTime, dep.Subject = t, msg
 	}
 	if spec.Private || spec.Repo == "" {
-		// No API access: compare with origin/<branch> as it was when the code was copied.
-		main, err := resolveRef(spec.GitDir, "refs/remotes/origin/"+spec.Branch)
+		// No API access: compare with the tracked remote branch as it was when the code was copied.
+		remote := trackedRemote(spec.GitDir, spec.Branch)
+		main, err := resolveRef(spec.GitDir, "refs/remotes/"+remote+"/"+spec.Branch)
 		if err != nil {
-			dep.Note = "private repo; no copy of origin/" + spec.Branch + " to compare with"
+			dep.Note = "private repo; no copy of " + remote + "/" + spec.Branch + " to compare with"
 			return nil
 		}
 		mc := github.Commit{SHA: main}
@@ -46,7 +47,7 @@ func (d *Detector) gitDir(ctx context.Context, spec config.DeploySpec, dep *stat
 			dep.Behind = 0
 		}
 		setStatus(dep)
-		dep.Note = "private repo: compared with origin/" + spec.Branch + " as last fetched before the deploy"
+		dep.Note = "private repo: compared with " + remote + "/" + spec.Branch + " as last fetched before the deploy"
 		return nil
 	}
 	return d.compareMain(ctx, spec, dep)
@@ -158,4 +159,28 @@ func lastReflog(gitDir string) (time.Time, string, bool) {
 	last := lines[len(lines)-1]
 	sig, msg, _ := strings.Cut(last, "\t")
 	return signatureTime(sig), msg, true
+}
+
+// trackedRemote reads [branch "<b>"] remote = <name> from .git/config; a
+// checkout whose remote isn't called origin would otherwise compare with a
+// stale leftover ref.
+func trackedRemote(gitDir, branch string) string {
+	b, err := os.ReadFile(filepath.Join(gitDir, "config"))
+	if err != nil {
+		return "origin"
+	}
+	in := false
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			in = line == `[branch "`+branch+`"]`
+			continue
+		}
+		if k, v, ok := strings.Cut(line, "="); in && ok && strings.TrimSpace(k) == "remote" {
+			if r := strings.TrimSpace(v); r != "" && r != "." {
+				return r
+			}
+		}
+	}
+	return "origin"
 }

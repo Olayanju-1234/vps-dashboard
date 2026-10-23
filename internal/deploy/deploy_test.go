@@ -249,3 +249,18 @@ func TestTreeExclude(t *testing.T) {
 		t.Fatalf("without excludes the differing paths should be listed: %+v", dep)
 	}
 }
+
+func TestGitDirFollowsTrackedRemote(t *testing.T) {
+	gitDir := t.TempDir()
+	head := strings.Repeat("a", 40)
+	write(t, gitDir, map[string]string{
+		"HEAD":                     head + "\n",
+		"config":                   "[core]\n\tbare = false\n[remote \"org\"]\n\turl = git@example:o/r.git\n[branch \"main\"]\n\tremote = org\n\tmerge = refs/heads/main\n",
+		"refs/remotes/org/main":    head + "\n",
+		"refs/remotes/origin/main": strings.Repeat("b", 40) + "\n", // stale leftover
+	})
+	dep := New(nil).Detect(context.Background(), config.DeploySpec{Method: "git_dir", GitDir: gitDir, Branch: "main", Private: true})
+	if dep.Status != "current" || dep.MainCommit != head || !strings.Contains(dep.Note, "org/main") {
+		t.Fatalf("should compare with org/main: %+v", dep)
+	}
+}
