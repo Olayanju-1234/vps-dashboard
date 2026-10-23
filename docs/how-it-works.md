@@ -21,7 +21,7 @@ without the decorators.
 | Package | Job | Node analogy |
 |---|---|---|
 | `config` | load and validate the JSON config | a `class-validator` DTO, but strict: unknown keys fail |
-| `envfile` | turn an env file into names + set/empty | `dotenv.parse`, keeping only `Object.keys` |
+| `envfile` | turn an env file into names + set/empty | `dotenv.parse` keeping only `Object.keys`, but stricter (below) |
 | `redact` | mask credential-shaped text in log lines | a pino `redact` list, but by regex |
 | `probe` | the privileged loop that writes `probe.json` | a cron worker writing a cache file |
 | `journal` | read new journal lines with `journalctl` | `child_process.spawn` + a line reader |
@@ -73,6 +73,16 @@ permissions". That's narrower than root (it can't write anything, change
 anything or bind a port) and it lets the probe read `deploy`-owned `0600` env
 files and `postgres`-owned backup folders without touching their permissions.
 The binary is owned by root so the service user can't swap it out.
+
+The parser walks the file character by character the way systemd does (systemd
+is what loads these files into the apps). Because a careless parser could read a
+line from the middle of a multi-line secret as `SOMETHING=...` and show
+`SOMETHING` as a "name", any line that systemd *or* dotenv might treat as the
+inside of a quoted value is counted as "not understood" instead. Being wrong in
+that direction hides a name; being wrong the other way would show a piece of a
+secret. It also refuses to open anything that isn't a plain file owned by the
+expected user (no symlinks, no named pipes), because the probe can read any file
+and must not be pointed at a different one.
 
 `envfile.Scrubber` is the one place values survive the parse: for one probe cycle
 they're used to replace any value that shows up in a journal line with
