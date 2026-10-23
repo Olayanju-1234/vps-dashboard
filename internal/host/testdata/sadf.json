@@ -1,0 +1,241 @@
+{
+ "sysstat": {
+  "hosts": [
+   {
+    "nodename": "example-host",
+    "sysname": "Linux",
+    "release": "6.17.0-1020-oracle",
+    "machine": "aarch64",
+    "number-of-cpus": 1,
+    "file-date": "2026-10-22",
+    "file-utc-time": "00:00:00",
+    "timezone": "UTC",
+    "statistics": [
+     {
+      "timestamp": {
+       "date": "2026-10-22",
+       "time": "00:10:15",
+       "utc": 1,
+       "interval": 616
+      },
+      "cpu-load": [
+       {
+        "cpu": "all",
+        "user": 1.03,
+        "nice": 0.0,
+        "system": 0.51,
+        "iowait": 0.03,
+        "steal": 0.29,
+        "idle": 98.12
+       }
+      ],
+      "memory": {
+       "memfree": 691420,
+       "avail": 4401840,
+       "memused": 1110616,
+       "memused-percent": 18.37,
+       "buffers": 364504,
+       "cached": 2717284,
+       "commit": 4963212,
+       "commit-percent": 69.97,
+       "active": 719076,
+       "inactive": 3334116,
+       "dirty": 2320,
+       "swpfree": 1048500,
+       "swpused": 72,
+       "swpused-percent": 0.01,
+       "swpcad": 72,
+       "swpcad-percent": 100.0
+      }
+     },
+     {
+      "timestamp": {
+       "date": "2026-10-22",
+       "time": "00:20:17",
+       "utc": 1,
+       "interval": 602
+      },
+      "cpu-load": [
+       {
+        "cpu": "all",
+        "user": 1.28,
+        "nice": 0.0,
+        "system": 0.53,
+        "iowait": 0.03,
+        "steal": 0.29,
+        "idle": 97.87
+       }
+      ],
+      "memory": {
+       "memfree": 696884,
+       "avail": 4409392,
+       "memused": 1103068,
+       "memused-percent": 18.25,
+       "buffers": 364504,
+       "cached": 2719372,
+       "commit": 4934148,
+       "commit-percent": 69.56,
+       "active": 712292,
+       "inactive": 3334188,
+       "dirty": 1816,
+       "swpfree": 1048500,
+       "swpused": 72,
+       "swpused-percent": 0.01,
+       "swpcad": 72,
+       "swpcad-percent": 100.0
+      }
+     },
+     {
+      "timestamp": {
+       "date": "2026-10-22",
+       "time": "00:30:04",
+       "utc": 1,
+       "interval": 587
+      },
+      "cpu-load": [
+       {
+        "cpu": "all",
+        "user": 0.92,
+        "nice": 0.0,
+        "system": 0.48,
+        "iowait": 0.03,
+        "steal": 0.29,
+        "idle": 98.29
+       }
+      ],
+      "memory": {
+       "memfree": 681472,
+       "avail": 4394044,
+       "memused": 1118420,
+       "memused-percent": 18.5,
+       "buffers": 364504,
+       "cached": 2719436,
+       "commit": 4924084,
+       "commit-percent": 69.41,
+       "active": 709332,
+       "inactive": 3334252,
+       "dirty": 2740,
+       "swpfree": 1048500,
+       "swpused": 72,
+       "swpused-percent": 0.01,
+       "swpcad": 72,
+       "swpcad-percent": 100.0
+      }
+     },
+     {
+      "timestamp": {
+       "date": "2026-10-22",
+       "time": "00:40:00",
+       "utc": 1,
+       "interval": 596
+      },
+      "cpu-load": [
+       {
+        "cpu": "all",
+        "user": 1.35,
+        "nice": 0.0,
+        "system": 0.5,
+        "iowait": 0.03,
+        "steal": 0.29,
+        "idle": 97.83
+       }
+      ],
+      "memory": {
+       "memfree": 681340,
+       "avail": 4393988,
+       "memused": 1118464,
+       "memused-percent": 18.5,
+       "buffers": 364504,
+       "cached": 2719512,
+       "commit": 4940472,
+       "commit-percent": 69.64,
+       "active": 715516,
+       "inactive": 3334328,
+       "dirty": 2772,
+       "swpfree": 1048500,
+       "swpused": 72,
+       "swpused-percent": 0.01,
+       "swpcad": 72,
+       "swpcad-percent": 100.0
+      }
+     },
+     {
+      "timestamp": {
+       "date": "2026-10-22",
+       "time": "00:50:03",
+       "utc": 1,
+       "interval": 603
+      },
+      "cpu-load": [
+       {
+        "cpu": "all",
+        "user": 0.97,
+        "nice": 0.0,
+        "system": 0.5,
+        "iowait": 0.03,
+        "steal": 0.29,
+        "idle": 98.21
+       }
+      ],
+      "memory": {
+       "memfree": 689772,
+       "avail": 4402484,
+       "memused": 1109956,
+       "memused-percent": 18.36,
+       "buffers": 364504,
+       "cached": 2719576,
+       "commit": 4933100,
+       "commit-percent": 69.54,
+       "active": 714616,
+       "inactive": 3334392,
+       "dirty": 2444,
+       "swpfree": 1048500,
+       "swpused": 72,
+       "swpused-percent": 0.01,
+       "swpcad": 72,
+       "swpcad-percent": 100.0
+      }
+     },
+     {
+      "timestamp": {
+       "date": "2026-10-22",
+       "time": "01:00:17",
+       "utc": 1,
+       "interval": 614
+      },
+      "cpu-load": [
+       {
+        "cpu": "all",
+        "user": 1.41,
+        "nice": 0.0,
+        "system": 0.58,
+        "iowait": 0.03,
+        "steal": 0.3,
+        "idle": 97.69
+       }
+      ],
+      "memory": {
+       "memfree": 680572,
+       "avail": 4393380,
+       "memused": 1119040,
+       "memused-percent": 18.51,
+       "buffers": 364504,
+       "cached": 2719672,
+       "commit": 4934084,
+       "commit-percent": 69.55,
+       "active": 715980,
+       "inactive": 3334488,
+       "dirty": 2360,
+       "swpfree": 1048500,
+       "swpused": 72,
+       "swpused-percent": 0.01,
+       "swpcad": 72,
+       "swpcad-percent": 100.0
+      }
+     }
+    ],
+    "restarts": []
+   }
+  ]
+ }
+}

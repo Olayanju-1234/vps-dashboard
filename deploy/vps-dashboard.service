@@ -1,0 +1,44 @@
+# The web half: serves the UI and JSON API on 127.0.0.1 only. It holds no
+# privileges and cannot read env files, private logs or backups.
+[Unit]
+Description=VPS dashboard (read-only web UI, loopback only)
+Documentation=https://github.com/Olayanju-1234/vps-dashboard
+After=network-online.target vps-dashboard-probe.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vpsdash
+Group=vpsdash
+ExecStart=/opt/vps-dashboard/vps-dashboard serve --config /etc/vps-dashboard/config.json
+Restart=on-failure
+RestartSec=5
+Environment=GOMEMLIMIT=24MiB
+MemoryMax=64M
+CPUWeight=20
+Nice=10
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

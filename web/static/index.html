@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>VPS dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='9' rx='2.5' fill='%232a78d6'/%3E%3Crect x='3' y='18' width='26' height='9' rx='2.5' fill='%231baf7a'/%3E%3Ccircle cx='8' cy='9.5' r='1.6' fill='%23fff'/%3E%3Ccircle cx='8' cy='22.5' r='1.6' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="9" rx="2.5"/><rect x="3" y="18" width="26" height="9" rx="2.5"/><circle cx="8" cy="9.5" r="1.6"/><circle cx="8" cy="22.5" r="1.6"/></svg>
+      <div>
+        <div class="brand-name">VPS dashboard</div>
+        <div class="brand-host" id="host-line">connecting…</div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Sections">
+      <a href="#/" data-tab="overview">Overview</a>
+      <a href="#/projects" data-tab="projects">Projects</a>
+      <a href="#/host" data-tab="host">Host</a>
+      <a href="#/envs" data-tab="envs">Envs</a>
+      <a href="#/network" data-tab="network">Network</a>
+    </nav>
+    <div class="topbar-right">
+      <span class="live" id="live" title="Refreshes every 10 seconds"><span class="live-dot"></span><span id="live-text">—</span></span>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="Switch colour theme" title="Theme: auto"></button>
+    </div>
+  </header>
+  <div class="demo-banner" id="demo-banner" hidden>Demo mode: everything on this page is made up.</div>
+  <main id="view" class="view" tabindex="-1"></main>
+  <footer class="footer" id="footer"></footer>
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
