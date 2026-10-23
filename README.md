@@ -2,8 +2,9 @@
 
 A read-only dashboard for a small server that runs several side projects at once,
 organised **by project** instead of by metric. One Go binary, no dependencies,
-about 10 MB of memory per process, and it listens on `127.0.0.1` only: you look
-at it through an SSH tunnel.
+and it listens on `127.0.0.1` only: you look at it through an SSH tunnel. On a
+1-vCPU ARM box running six projects, each of its two processes uses about 15 MB
+of memory, and together they use about 0.3% of the CPU.
 
 ![Overview in demo mode](docs/overview.png)
 
