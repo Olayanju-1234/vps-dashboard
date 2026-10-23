@@ -76,7 +76,8 @@
       "id": "shared",
       "name": "Shared",
       "description": "nginx, Postgres, Redis, sshd",
-      "units": ["nginx", "postgresql@16-main", "redis-server"],
+      "units": ["nginx", "postgresql@16-main", "redis-server", "ssh"],
+      "log_ignore": ["kex_exchange_identification", "Bad remote protocol version", "Invalid user", "Connection (closed|reset) by .* \\[preauth\\]"],
       "ports": [
         { "port": 22, "label": "sshd", "public": true },
         { "port": 80, "label": "nginx", "public": true },

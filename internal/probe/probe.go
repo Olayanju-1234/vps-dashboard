@@ -54,9 +54,13 @@ func New(cfg *config.Config, version string, log *slog.Logger) *Probe {
 		}
 		sources = append(sources, nginxlog.Source{Path: l.Path, Label: label})
 	}
+	j := journal.New(cfg.Journalctl, units)
+	for _, p := range cfg.Projects {
+		j.Ignore(p.ID, p.LogIgnore)
+	}
 	return &Probe{
 		cfg: cfg, version: version, log: log, now: time.Now,
-		journal: journal.New(cfg.Journalctl, units),
+		journal: j,
 		nginx:   nginxlog.New(sources, hosts, cfg.UserAgent),
 	}
 }

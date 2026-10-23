@@ -277,6 +277,7 @@
     const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map((p) => { try { return decodeURIComponent(p); } catch (e) { return p; } });
     if (!parts.length) return { tab: 'overview' };
     if (parts[0] === 'project') return { tab: 'project', id: parts[1] };
+    if (parts[0] === 'host' && ['1h', '6h', '24h', '7d'].includes(parts[1])) hist.range = parts[1];
     return { tab: parts[0] };
   }
   window.addEventListener('hashchange', () => { window.scrollTo(0, 0); refresh(); });
@@ -324,11 +325,9 @@
     const more = document.getElementById('more-alerts');
     if (more) more.addEventListener('click', () => { showAllAlerts = !showAllAlerts; render(); });
     if (r.tab === 'host') {
-      document.querySelectorAll('[data-range]').forEach((b) => b.addEventListener('click', async () => {
-        hist.range = b.dataset.range;
-        render();
-        await loadHistory();
-        render();
+      document.querySelectorAll('[data-range]').forEach((b) => b.addEventListener('click', () => {
+        // The hash carries the range, so a link opens the same view; hashchange reloads.
+        location.hash = `#/host/${b.dataset.range}`;
       }));
       const samples = hist.data?.range === hist.range ? hist.data.samples : null;
       const charts = [['cpu', 'cpu', 'var(--s-cpu)', 'CPU'], ['mem', 'mem', 'var(--s-mem)', 'Memory used'], ['swap', 'swap', 'var(--s-swap)', 'Swap used']];

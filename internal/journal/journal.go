@@ -41,6 +41,17 @@ type Collector struct {
 	cursor string
 	now    func() time.Time
 	byProj map[string]*project
+	ignore map[string][]*regexp.Regexp // project -> lines to drop
+}
+
+// Ignore drops a project's lines that match any of the patterns (already validated).
+func (c *Collector) Ignore(project string, patterns []string) {
+	if c.ignore == nil {
+		c.ignore = map[string][]*regexp.Regexp{}
+	}
+	for _, p := range patterns {
+		c.ignore[project] = append(c.ignore[project], regexp.MustCompile(p))
+	}
 }
 
 type project struct {
@@ -145,6 +156,9 @@ func (c *Collector) read(r io.Reader, scrub *envfile.Scrubber) error {
 			continue
 		}
 		msg := message(e.Message)
+		if c.ignored(projID, msg) {
+			continue
+		}
 		prio, err := strconv.Atoi(e.Priority)
 		if err != nil {
 			prio = 6
@@ -161,6 +175,15 @@ func (c *Collector) read(r io.Reader, scrub *envfile.Scrubber) error {
 		return fmt.Errorf("journal: read: %w", err)
 	}
 	return nil
+}
+
+func (c *Collector) ignored(project, msg string) bool {
+	for _, re := range c.ignore[project] {
+		if re.MatchString(msg) {
+			return true
+		}
+	}
+	return false
 }
 
 // message decodes MESSAGE, which journald emits as a byte array when it is not UTF-8.

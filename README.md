@@ -106,6 +106,7 @@ typo can't silently switch a check off. Per project:
 | `backups` | `dir` + `glob` + `max_age`; the newest match decides fresh or stale |
 | `env_files` | env files (names only); `secret_file: true` for single-value token files, which are never opened |
 | `env_copy_globs` | where old copies of env files might sit (`.example` files are skipped) |
+| `log_ignore` | regexps for journal lines to drop, such as sshd's internet-scanner noise |
 
 `deploy.method`:
 

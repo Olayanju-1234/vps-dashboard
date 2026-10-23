@@ -28,6 +28,7 @@ func TestParseRejects(t *testing.T) {
 		"tree needs repo": `{"projects":[{"id":"a","deploy":{"method":"tree","trees":[{"dir":"/x"}]}}]}`,
 		"bad duration":    `{"intervals":{"fast":"soon"}}`,
 		"missing id":      `{"projects":[{"name":"x"}]}`,
+		"bad log_ignore":  `{"projects":[{"id":"a","log_ignore":["("]}]}`,
 	}
 	for name, js := range cases {
 		if _, err := Parse([]byte(js)); err == nil {
