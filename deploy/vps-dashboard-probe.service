@@ -1,0 +1,48 @@
+# The privileged half: may read any file (CAP_DAC_READ_SEARCH) so it can list
+# env-file names and backup folders, but has no network at all. It writes one
+# snapshot of names, ages, counts and redacted log lines for the web half.
+[Unit]
+Description=VPS dashboard probe (reads env names, backups, logs; no network)
+Documentation=https://github.com/Olayanju-1234/vps-dashboard
+
+[Service]
+Type=simple
+User=vpsdash-probe
+Group=vpsdash
+SupplementaryGroups=adm systemd-journal
+ExecStart=/opt/vps-dashboard/vps-dashboard probe --config /etc/vps-dashboard/config.json
+Restart=on-failure
+RestartSec=10
+Environment=GOMEMLIMIT=24MiB
+MemoryMax=64M
+CPUWeight=20
+Nice=10
+StateDirectory=vps-dashboard
+StateDirectoryMode=0750
+
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+PrivateNetwork=yes
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

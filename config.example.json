@@ -1,0 +1,89 @@
+{
+  "listen": "127.0.0.1:8400",
+  "snapshot_path": "/var/lib/vps-dashboard/probe.json",
+  "sysstat_dir": "/var/log/sysstat",
+  "disks": ["/"],
+  "tls_addr": "127.0.0.1:443",
+  "nginx_logs": [
+    { "path": "/var/log/nginx/shop.access.log", "label": "shop.access.log" },
+    { "path": "/var/log/nginx/access.log", "label": "access.log" }
+  ],
+  "intervals": { "fast": "10s", "checks": "60s", "slow": "10m", "probe": "60s" },
+  "projects": [
+    {
+      "id": "shop",
+      "name": "Shop",
+      "description": "NestJS API and Next.js storefront",
+      "units": ["shop-api", "shop-web"],
+      "ports": [
+        { "port": 3000, "label": "API" },
+        { "port": 3001, "label": "web" }
+      ],
+      "checks": [
+        { "url": "https://api.shop.example.com/health" },
+        { "url": "https://shop.example.com/" }
+      ],
+      "hosts": ["shop.example.com", "api.shop.example.com"],
+      "deploy": {
+        "repo": "example/shop",
+        "method": "tree",
+        "trees": [
+          { "dir": "/opt/shop/api", "prefix": "api" },
+          { "dir": "/opt/shop/web", "prefix": "web" }
+        ],
+        "deployed_at": ["/opt/shop/api/dist", "/opt/shop/web/.next"]
+      },
+      "backups": [
+        { "label": "Postgres nightly", "dir": "/var/backups/shop", "glob": "shop-*.sql.gz", "max_age": "26h" }
+      ],
+      "env_files": [
+        { "path": "/opt/shop/api/.env", "expect_owner": "deploy", "expect_mode": "0600" }
+      ],
+      "env_copy_globs": ["/opt/shop/api/.env.*"]
+    },
+    {
+      "id": "engine",
+      "name": "Engine",
+      "description": "A Go service built from a checkout",
+      "units": ["engine", "engine-backup.timer"],
+      "ports": [{ "port": 7300, "label": "gRPC" }],
+      "checks": [{ "url": "http://127.0.0.1:8300/api/health" }],
+      "deploy": {
+        "repo": "example/engine",
+        "method": "go_binary",
+        "binary": "/opt/engine/engine",
+        "deployed_at": ["/opt/engine/engine"]
+      },
+      "static_sites": [{ "label": "landing page", "path": "/var/www/engine" }],
+      "env_files": [
+        { "path": "/etc/engine.token", "secret_file": true, "expect_owner": "root", "expect_mode": "0640" }
+      ]
+    },
+    {
+      "id": "api",
+      "name": "Private API",
+      "description": "Rsynced from a laptop, .git included, private repo",
+      "units": ["private-api"],
+      "deploy": {
+        "repo": "example-org/api",
+        "private": true,
+        "method": "git_dir",
+        "git_dir": "/opt/api/.git",
+        "deployed_at": ["/opt/api/dist"]
+      }
+    },
+    {
+      "id": "shared",
+      "name": "Shared",
+      "description": "nginx, Postgres, Redis, sshd",
+      "units": ["nginx", "postgresql@16-main", "redis-server"],
+      "ports": [
+        { "port": 22, "label": "sshd", "public": true },
+        { "port": 80, "label": "nginx", "public": true },
+        { "port": 443, "label": "nginx", "public": true },
+        { "port": 5432, "label": "postgres" },
+        { "port": 6379, "label": "redis" }
+      ]
+    }
+  ]
+}
