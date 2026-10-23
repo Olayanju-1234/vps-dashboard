@@ -1,0 +1,8 @@
+/bin/
+/dist/
+/config.local.json
+.claude/
+CLAUDE.local.md
+.env*
+*.prev
+.DS_Store
