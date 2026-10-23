@@ -138,3 +138,21 @@ func contains(ss []string, want string) bool {
 	}
 	return false
 }
+
+func TestIgnore(t *testing.T) {
+	c := New("journalctl", map[string]string{"ssh.service": "shared"})
+	c.now = func() time.Time { return now }
+	c.Ignore("shared", []string{`kex_exchange_identification`})
+	c.open = func(ctx context.Context, args []string) (io.ReadCloser, func() error, error) {
+		body := entryJSON(now.Add(-time.Minute), "ssh.service", "", "3", "error: kex_exchange_identification: read: Connection reset by peer") + "\n" +
+			entryJSON(now.Add(-time.Minute), "ssh.service", "", "3", "fatal: real problem") + "\n"
+		return io.NopCloser(strings.NewReader(body)), func() error { return nil }, nil
+	}
+	if err := c.Collect(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	r := c.Results()[0]
+	if r.Errors24 != 1 || len(r.Lines) != 1 || r.Lines[0].Message != "fatal: real problem" {
+		t.Fatalf("ignore: %+v", r)
+	}
+}

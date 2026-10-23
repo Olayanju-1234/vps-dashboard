@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -67,6 +68,7 @@ type Project struct {
 	Backups     []BackupSpec `json:"backups"`
 	EnvFiles    []EnvSpec    `json:"env_files"`
 	EnvCopies   []string     `json:"env_copy_globs"`
+	LogIgnore   []string     `json:"log_ignore"` // regexps; matching journal lines are dropped
 }
 
 // CheckSpec is one URL to GET.
@@ -263,6 +265,11 @@ func (c *Config) validate() error {
 		for _, pt := range p.Ports {
 			if err := claimPort(ports, pt.Port, p.ID); err != nil {
 				return err
+			}
+		}
+		for _, re := range p.LogIgnore {
+			if _, err := regexp.Compile(re); err != nil {
+				return fmt.Errorf("config: project %s: log_ignore %q: %w", p.ID, re, err)
 			}
 		}
 		switch p.Deploy.Method {
