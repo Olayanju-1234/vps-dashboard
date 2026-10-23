@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -209,5 +210,57 @@ func TestTreeMatchPerFolder(t *testing.T) {
 	dep := New(gh).Detect(context.Background(), spec)
 	if dep.Commit != "c0" || dep.Behind != 2 || !dep.Exact || dep.Status != "behind" || !strings.Contains(dep.Note, "api at c2 (matches main)") || !strings.Contains(dep.Note, "web at c0 (2 behind)") {
 		t.Fatalf("per folder: %+v", dep)
+	}
+}
+
+func TestLdflagsCommit(t *testing.T) {
+	got := ldflagsCommit([]debug.BuildSetting{{Key: "-trimpath", Value: "true"}, {Key: "-ldflags", Value: "-X github.com/o/r/internal/version.Version=9f19ab8 -s -w"}})
+	if got != "9f19ab8" {
+		t.Fatalf("got %q", got)
+	}
+	if ldflagsCommit([]debug.BuildSetting{{Key: "-ldflags", Value: "-X main.version=dev"}}) != "" {
+		t.Fatal("dev is not a commit")
+	}
+	if exe := os.Getenv("WORKFLOWD_BINARY"); exe != "" {
+		dep := New(github.New("http://127.0.0.1:1", "t")).Detect(context.Background(), config.DeploySpec{Method: "go_binary", Binary: exe})
+		t.Logf("real binary: commit=%q err=%q", dep.Commit, dep.Error)
+		if dep.Commit == "" {
+			t.Fatal("no commit from the real binary")
+		}
+	}
+}
+
+func TestTreeExclude(t *testing.T) {
+	commits := []fakeCommit{
+		{"c2", "feat(frontend): copy", "t2", map[string]string{"api/a.js": "a1", "frontend/f.tsx": "f2", "packages/x.tsbuildinfo": "b1"}},
+		{"c1", "feat(api): thing", "t1", map[string]string{"api/a.js": "a1", "frontend/f.tsx": "f1", "packages/x.tsbuildinfo": "b1"}},
+	}
+	gh, _ := fakeGitHub(t, commits, nil)
+	dir := t.TempDir()
+	write(t, dir, map[string]string{"api/a.js": "a1", "frontend/f.tsx": "f1", "packages/x.tsbuildinfo": "rebuilt"})
+	spec := config.DeploySpec{Repo: "o/r", Method: "tree", Trees: []config.TreeDir{{Dir: dir, Exclude: []string{"frontend/", "*.tsbuildinfo"}}}}
+	dep := New(gh).Detect(context.Background(), spec)
+	if dep.Commit != "c2" || !dep.Exact || dep.Behind != 0 || dep.Compared != 1 {
+		t.Fatalf("frontend-only commits and build files should not count: %+v", dep)
+	}
+	spec.Trees[0].Exclude = nil
+	dep = New(gh).Detect(context.Background(), spec)
+	if dep.Exact || len(dep.DiffPaths) == 0 || !strings.Contains(strings.Join(dep.DiffPaths, ","), "x.tsbuildinfo") {
+		t.Fatalf("without excludes the differing paths should be listed: %+v", dep)
+	}
+}
+
+func TestGitDirFollowsTrackedRemote(t *testing.T) {
+	gitDir := t.TempDir()
+	head := strings.Repeat("a", 40)
+	write(t, gitDir, map[string]string{
+		"HEAD":                     head + "\n",
+		"config":                   "[core]\n\tbare = false\n[remote \"org\"]\n\turl = git@example:o/r.git\n[branch \"main\"]\n\tremote = org\n\tmerge = refs/heads/main\n",
+		"refs/remotes/org/main":    head + "\n",
+		"refs/remotes/origin/main": strings.Repeat("b", 40) + "\n", // stale leftover
+	})
+	dep := New(nil).Detect(context.Background(), config.DeploySpec{Method: "git_dir", GitDir: gitDir, Branch: "main", Private: true})
+	if dep.Status != "current" || dep.MainCommit != head || !strings.Contains(dep.Note, "org/main") {
+		t.Fatalf("should compare with org/main: %+v", dep)
 	}
 }

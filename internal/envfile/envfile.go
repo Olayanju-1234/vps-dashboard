@@ -12,8 +12,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/olayanju-1234/vps-dashboard/internal/state"
@@ -335,7 +337,7 @@ type ScrubBuilder struct {
 
 func (b *ScrubBuilder) add(name, value string) {
 	value = strings.TrimSpace(value)
-	if len(value) < MinScrubLen {
+	if len(value) < MinScrubLen || notSecret(value) {
 		return
 	}
 	if b.pairs == nil {
@@ -363,6 +365,16 @@ func (b *ScrubBuilder) addValue(name, decoded, raw string) {
 		r = r[:i]
 	}
 	b.add(name, r)
+}
+
+// notSecret spots values that can't be secrets but would otherwise be scrubbed
+// from every log line they appear in, like HOST=127.0.0.1 or a port.
+func notSecret(v string) bool {
+	if net.ParseIP(v) != nil {
+		return true
+	}
+	_, err := strconv.ParseFloat(v, 64)
+	return err == nil
 }
 
 // AddSecret records the contents of a single-value secret file.

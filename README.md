@@ -115,7 +115,9 @@ typo can't silently switch a check off. Per project:
 - `tree`: for code deployed with `git archive` (no `.git`): hashes every tracked file
   on disk the way git does and finds the newest of the last 20 commits on `main` that
   matches. Each folder in `trees` is matched on its own, so an API and a web app deployed
-  on different days are both reported correctly.
+  on different days are both reported correctly. `exclude` skips paths that don't
+  belong to that folder's deploy: `"frontend/"` (a prefix) when the frontend ships
+  elsewhere, `"*.tsbuildinfo"` (a file name) for build output that is committed.
 
 GitHub is called without a token, with `If-None-Match` on repeats (a 304 costs
 nothing against the 60 requests/hour limit) and permanent caching of trees and

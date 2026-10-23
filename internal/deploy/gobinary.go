@@ -5,6 +5,8 @@ import (
 	"debug/buildinfo"
 	"errors"
 	"fmt"
+	"regexp"
+	"runtime/debug"
 	"time"
 
 	"github.com/olayanju-1234/vps-dashboard/internal/config"
@@ -28,8 +30,25 @@ func (d *Detector) goBinary(ctx context.Context, spec config.DeploySpec, dep *st
 		}
 	}
 	if dep.Commit == "" {
-		return errors.New("deploy: binary has no vcs.revision (built outside a checkout?)")
+		// Built with -buildvcs=false: look for "-X ...Version=<sha>" instead.
+		dep.Commit = ldflagsCommit(info.Settings)
+	}
+	if dep.Commit == "" {
+		return errors.New("deploy: binary carries no commit (no vcs.revision and no -X version=<sha>)")
 	}
 	dep.Exact = true
 	return d.compareMain(ctx, spec, dep)
+}
+
+var ldflagsSHA = regexp.MustCompile(`-X[= ]\S*[Vv]ersion=([0-9a-f]{7,40})\b`)
+
+func ldflagsCommit(settings []debug.BuildSetting) string {
+	for _, s := range settings {
+		if s.Key == "-ldflags" {
+			if m := ldflagsSHA.FindStringSubmatch(s.Value); m != nil {
+				return m[1]
+			}
+		}
+	}
+	return ""
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -28,7 +29,10 @@ type fileHash struct {
 
 type treeResult struct {
 	compared, differing int
+	paths               []string // first few that differ, repo-relative
 }
+
+const maxDiffPaths = 5
 
 // tree finds, for each deployed folder, the newest recent commit whose files
 // match the disk. Folders deployed on different days can match different
@@ -88,6 +92,11 @@ func (d *Detector) tree(ctx context.Context, spec config.DeploySpec, dep *state.
 	for _, m := range matches {
 		dep.Compared += m.res.compared
 		dep.Differing += m.res.differing
+		for _, p := range m.res.paths {
+			if len(dep.DiffPaths) < maxDiffPaths {
+				dep.DiffPaths = append(dep.DiffPaths, p)
+			}
+		}
 		if m.res.differing > 0 {
 			dep.Exact = false
 		}
@@ -158,9 +167,15 @@ func (d *Detector) compareTree(entries []github.Entry, dirs []config.TreeDir) tr
 			if !ok {
 				continue
 			}
+			if excluded(rel, td.Exclude) {
+				break
+			}
 			res.compared++
 			if d.hashFile(filepath.Join(td.Dir, filepath.FromSlash(rel)), e.Mode == "120000") != e.SHA {
 				res.differing++
+				if len(res.paths) < maxDiffPaths {
+					res.paths = append(res.paths, e.Path)
+				}
 			}
 			break
 		}
@@ -168,12 +183,25 @@ func (d *Detector) compareTree(entries []github.Entry, dirs []config.TreeDir) tr
 	return res
 }
 
-func under(path, prefix string) (string, bool) {
+func excluded(rel string, patterns []string) bool {
+	for _, p := range patterns {
+		if strings.HasSuffix(p, "/") {
+			if strings.HasPrefix(rel, p) {
+				return true
+			}
+		} else if ok, _ := path.Match(p, path.Base(rel)); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func under(p, prefix string) (string, bool) {
 	prefix = strings.Trim(prefix, "/")
 	if prefix == "" {
-		return path, true
+		return p, true
 	}
-	rel, ok := strings.CutPrefix(path, prefix+"/")
+	rel, ok := strings.CutPrefix(p, prefix+"/")
 	return rel, ok
 }
 

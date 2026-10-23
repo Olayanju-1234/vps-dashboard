@@ -234,6 +234,7 @@ type Deploy struct {
 	Subject      string    `json:"subject,omitempty"`
 	Exact        bool      `json:"exact"`
 	Differing    int       `json:"differing_files"`
+	DiffPaths    []string  `json:"differing_paths,omitempty"`
 	Compared     int       `json:"compared_files"`
 	Dirty        bool      `json:"dirty,omitempty"`
 	DeployedAt   time.Time `json:"deployed_at,omitempty"`

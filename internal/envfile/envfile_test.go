@@ -223,3 +223,14 @@ func TestScrubberCatchesEveryForm(t *testing.T) {
 		t.Fatalf("builder printed values: %s %s", text, js)
 	}
 }
+
+func TestScrubberSkipsAddressesAndNumbers(t *testing.T) {
+	var sb ScrubBuilder
+	if _, err := Parse(strings.NewReader("HOST=127.0.0.1\nBIG=1234567890\nV6=0:0:0:0:0:0:0:1\nKEY=real-secret-value\n"), &sb); err != nil {
+		t.Fatal(err)
+	}
+	got := sb.Build().Scrub("from 127.0.0.1 id 1234567890 ::1 0:0:0:0:0:0:0:1 key real-secret-value")
+	if got != "from 127.0.0.1 id 1234567890 ::1 0:0:0:0:0:0:0:1 key [env:KEY]" {
+		t.Fatalf("got %q", got)
+	}
+}
